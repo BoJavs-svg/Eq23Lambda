@@ -1,0 +1,116 @@
+# actions:
+#   open_pr: true
+agent:
+  model:
+    name: ollama/hf.co/BoJavs/TrainedQwen2.5-GGUF:Q4_K_M
+    api_base: https://sweagentfinal--ollama-server-fast-ollamaserver-serve.modal.run
+    per_instance_cost_limit: 0   
+    total_cost_limit: 0
+    per_instance_call_limit: 15
+    max_input_tokens: 0
+    temperature: 0.2
+    delay: 0.0
+  templates:
+    system_template: |-
+      SETTING: You are an autonomous programmer, and you're working directly in the command line with a special interface.
+      The editor shows you {{WINDOW}} lines at a time. You can use regular bash commands and these custom commands:
+      COMMANDS:
+      {{command_docs}}
+      Use exact indentation. For example, to add '        print(x)', include all the spaces. Indentation errors will break the code.
+      If you identify an issue, immediately apply the fix with the `edit` command.
+      Your job is to:
+      - Investigate and fix issues.
+      - Test your changes.
+      - Submit with the `submit` command.
+      RESPONSE FORMAT:
+      Your shell prompt is formatted as follows:
+      (Open file: <path>) <cwd> $
+      You need to format your output using two fields; discussion and command.
+      Your output should always include _one_ discussion and _one_ command field EXACTLY as in the following example:
+      DISCUSSION
+      What you’re doing and why.  
+      <command>
+      your-command-here  
+      </command>
+      Only ONE command per response. No backticks, markdown, or combined commands.
+      Interactive tools like `python` or `vim` are not supported. You can write scripts and run them, e.g., `python fix.py`.
+    instance_template: |-
+      We're currently solving the following issue within our repository. Here's the issue text:
+      ISSUE:
+      {{problem_statement}}
+      INSTRUCTIONS:
+      You're in the repo root. Investigate and fix the issue using bash or custom commands.
+      State:
+      - How you will reproduce the issue
+      Only then, issue your first command.
+      NOTE ABOUT THE EDIT COMMAND: Indentation really matters! When editing a file, make sure to insert appropriate indentation before each line!      
+    next_step_template: |-
+      Read the output and suggest ONE next command. Do NOT repeat previous commands.
+      DISCUSSION  
+      <your next step>  
+      <command>  
+      <your command>  
+      </command>
+      {{observation}}
+      (Open file: {{openfile}})
+      (Current directory: {{working_dir}})
+      bash-$
+    next_step_no_output_template: |-
+      Your last command ran successfully with no output.
+      If you're editing files, use the edit tool with proper indentation. Only include DISCUSSION and COMMAND blocks.
+      DISCUSSION  
+      <your explanation>  
+      <command>  
+      <your next command>  
+      </command>
+      (Open file: {{openfile}})
+      (Current directory: {{working_dir}})
+      bash-$
+    demonstration_template: |
+      Here is a demonstration of how to correctly accomplish this task.
+      It is included to show you how to correctly use the interface.
+      You do not need to follow exactly what is done in the demonstration.
+      --- DEMONSTRATION ---
+      DISCUSSION
+      First I'll start by using ls to see what files are in the current directory. Then maybe we can look at some relevant files to see what they look like.
+      <command>
+      ls -a
+      </command>
+      --- END OF DEMONSTRATION ---
+    demonstrations:
+      - trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__default_sys-env_window100__t-0.20__p-0.95__c-2.00__install-1/marshmallow-code__marshmallow-1867.traj
+  tools:
+    env_variables:
+      WINDOW: 100
+      OVERLAP: 2
+    bundles:
+      - path: tools/registry
+      - path: tools/defaults
+      - path: tools/search
+      - path: tools/edit_linting
+      - path: tools/submit
+
+    parse_function:
+      type: xml_thought_action
+    registry_variables:
+      USE_FILEMAP: 'true'
+      SUBMIT_REVIEW_MESSAGES:
+        - |
+          Thank you for your work on this issue. Please carefully follow the steps below to help review your changes.
+
+          1. If you made any changes to your code after running the reproduction script, please run the reproduction script again.
+            If the reproduction script is failing, please revisit your changes and make sure they are correct.
+            If you have already removed your reproduction script, please ignore this step.
+          2. Remove your reproduction script (if you haven't done so already).
+          3. If you have modified any TEST files, please revert them to the state they had before you started fixing the issue.
+            You can do this with `git checkout -- /path/to/test/file.py`. Use below <diff> to find the files you need to revert.
+          4. Run the submit command again to confirm.
+
+          Here is a list of all of your changes:
+
+          <diff>
+          {{diff}}
+          </diff>
+  history_processors:
+    - type: last_n_observations
+      n: 5

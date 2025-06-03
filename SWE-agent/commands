@@ -1,0 +1,11 @@
+sweagent run-batch \
+    --config config/local_config.yaml \x
+    --instances.type huggingface \
+    --instances.dataset_name "BoJavs/Clean_SweBench" \
+    --instances.split "test" \
+    --instances.shuffle=True \
+    --num_workers 5
+
+find . -type f -name "*.patch" | wc -l
+
+sweagent merge-preds trajectories/javs/local_config__ollama
